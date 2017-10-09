@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Created on 2017年10月1日
+Created on 2016年12月10日
 
 @author: albin
+@page: 
 """
 import re
 import abc
@@ -22,6 +23,10 @@ def parse(filename, *args, **kwargs):
 
 def get_tag(element):
     return re.sub(namespace_pattern, '', element.tag)
+    
+    
+def get_namespace(element):
+    return re.sub(get_tag(element), '', element.tag)
 
 
 class Node(object):
@@ -35,14 +40,17 @@ class Node(object):
         self.element = element
     
     @abc.abstractmethod
-    def expand2dicts(self, text_flag=True):
-        """ expand the wrapped element. return: list<dict>"""
+    def expand2dicts(self, rename_tags=(), text_flag=True, ):
+        """ expand the wrapped element. 
+        :rename_tags: rename the duplicated tag in rename_tags
+        :return: list<dict>"""
 
-    def expand2table(self, text_flag=True):
-        """ expand the wrapped element to a `petl.util.base.Table`
+    def expand2table(self, rename_tags=(), text_flag=True, ):
+        """ expand the wrapped element to a table
+        :rename_tags: rename the duplicated tag in rename_tags
         :param text_flag:  the table contains of element's text if True otherwise contains of element.
-        :return: <? extends `petl.util.base.Table`> table<?>"""
-        dicts = self.expand2dicts(text_flag)
+        :return: `petl.util.base.TableWrapper`"""
+        dicts = self.expand2dicts(rename_tags=rename_tags, text_flag=text_flag, )
         return dicts2table(dicts)
 
     def findall(self, expression, **kwargs):
@@ -57,14 +65,14 @@ class Node(object):
         """executing expression over target_node methods named func_name"""
         func = getattr(target_node, func_name)
         elements = func(expression, **kwargs)
-        return NodeList(elements)
+        return NodeList((XMLNode(e) for e in elements))
 
     def join(self, other, key=None, **petl_kwargs):
         """join this node and other node as a `RelatedNode` """
         return self.relate(other, 'join', key=key, **petl_kwargs)
 
     def crossjoin(self, other, **petl_kwargs):
-        """concat this node and other node as a `RelatedNode` """
+        """crossjoin this node and other node as a `RelatedNode` """
         return self.relate(other, 'crossjoin', **petl_kwargs)
         
     def relate(this, other, relation, **petl_kwargs):
@@ -75,16 +83,16 @@ class Node(object):
         return get_tag(self.element)
 
     def namespace(self):
-        return re.sub(self.tag(), '', self.element.tag)
+        return get_namespace(self.element)
 
     def __repr__(self):
         return "<%s %s at 0x%x>" % (self.__class__.__name__, self.tag(), id(self))
 
 
 class XMLNode(Node):
-    def expand2dicts(self, text_flag=True):
+    def expand2dicts(self, rename_tags=(), text_flag=True, ):
         """implement"""
-        dicts = DataBuilder(self.element, text_flag).build()
+        dicts = DataBuilder(self.element, rename_tags=rename_tags, text_flag=text_flag, ).build()
         return dicts
         
     def remove(self):
@@ -97,18 +105,17 @@ class XMLNode(Node):
        
 
 class NodeList(Node, list):
-    def __init__(self, elements):
-        if not elements:
-            raise TypeError('received empty list')
-        nodes = elements if isinstance(elements[0], Node) else [XMLNode(e) for e in elements]
-        Node.__init__(self, nodes[0].element)
+    def __init__(self, nodes):
+        if not nodes:
+            raise TypeError("Invalid argument 'nodes', <? extands Iterator<xmlutil.Node>> nodes<?> is expecting.")
         self.extend(nodes)
+        Node.__init__(self, self[0].element)
 
-    def expand2dicts(self, text_flag=True):
+    def expand2dicts(self, rename_tags=(), text_flag=True, ):
         """implement"""
         dicts = []
         for node in self:
-            dicts.extend(node.expand2dicts(text_flag))
+            dicts.extend(node.expand2dicts(rename_tags=rename_tags, text_flag=text_flag, ))
         return dicts
 
     def _execute_expression(self, target_node, func_name, expression, **kwargs):
@@ -131,15 +138,15 @@ class RelatedNode(Node):
         self.relation = relation
         self.kwargs = kwargs
 
-    def expand2dicts(self, text_flag=True):
+    def expand2dicts(self, rename_tags=(), text_flag=True, ):
         """implement"""
-        return self.expand2table(text_flag).dicts()
+        return self.expand2table(rename_tags=rename_tags, text_flag=text_flag, ).dicts()
 
-    def expand2table(self, text_flag=True):
+    def expand2table(self, rename_tags=(), text_flag=True, ):
         """overwrite"""
-        this_dicts = self.this.expand2dicts(text_flag)
+        this_dicts = self.this.expand2dicts(rename_tags=rename_tags, text_flag=text_flag, )
         this_table = dicts2table(this_dicts)
-        other_dicts = self.other.expand2dicts(text_flag)
+        other_dicts = self.other.expand2dicts(rename_tags=rename_tags, text_flag=text_flag, )
         other_table = dicts2table(other_dicts)
         related_table = getattr(this_table, self.relation)(other_table, **self.kwargs)
         return related_table
@@ -163,22 +170,33 @@ class DataBuilder(object):
     :param text_flag:  the table contains of element's text if True otherwise contains of element.
     """
 
-    def __init__(self, element, text_flag=True):
+    def __init__(self, element, rename_tags=(), text_flag=True, ):
         self.element = element
+        self.rename_tags = rename_tags
+        self.rename_tags_counter = None
         self.text_flag = text_flag
         self.tmp_tags = list()
         self.data_list = list()
         self.data_item = collections.OrderedDict()
 
     def build(self):
+        self._reset_rename_tags_counter()
         self._build(self.element)
         return self.data_list
+    
+    def _reset_rename_tags_counter(self):
+        self.rename_tags_counter = dict((tag, 0) for tag in self.rename_tags)
 
     def _build(self, element, level=0):
         tag, text = get_tag(element), element.text.strip() if element.text else None
         if text:
             if self.data_item.get(tag) is not None:
-                self._insert(tag)
+                if tag in self.rename_tags:
+                    count = self.rename_tags_counter[tag] + 1
+                    tag = tag + '_' + str(count)
+                    self.rename_tags_counter[tag] = count
+                else:
+                    self._insert(tag)
             self.tmp_tags.append(tag)
             self.data_item.update({tag: text if self.text_flag else element})
         for e in element:
@@ -187,6 +205,7 @@ class DataBuilder(object):
             self._insert(tag)
 
     def _insert(self, duplicate_tag):
+        self._reset_rename_tags_counter()
         self.data_list.append(self.data_item.copy())
         
         try:
