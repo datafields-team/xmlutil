@@ -67,9 +67,9 @@ class Node(object):
         """concat this node and other node as a `RelatedNode` """
         return self.relate(other, 'crossjoin', **petl_kwargs)
         
-    def relate(self, other, relation, **petl_kwargs):
-        """relate this node and other node as a `RelatedNode` over relation. relation is a method name of `petl.util.base.Table`"""
-        return RelatedNode(self, other, relation, **petl_kwargs)
+    def relate(this, other, relation, **petl_kwargs):
+        """relate this node and other node as a `RelatedNode` over relation. relation is a function name of petl package"""
+        return RelatedNode(this, other, relation, **petl_kwargs)
     
     def tag(self):
         return get_tag(self.element)
