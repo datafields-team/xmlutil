@@ -11,9 +11,6 @@ import collections
 from lxml import etree 
 import petl
 
-import sys
-sys.path.insert(0, r'C:\Users\albin\Downloads\dbutil-20171007T105314Z-001\dbutil')
-
 
 namespace_pattern = re.compile(r"{.+}")
 
@@ -61,10 +58,18 @@ class Node(object):
         func = getattr(target_node, func_name)
         elements = func(expression, **kwargs)
         return NodeList(elements)
+
+    def join(self, other, **petl_kwargs):
+        """join this node and other node as a `RelatedNode` """
+        return self.relate(other, 'join', **petl_kwargs)
+
+    def crossjoin(self, other, **petl_kwargs):
+        """concat this node and other node as a `RelatedNode` """
+        return self.relate(other, 'crossjoin', **petl_kwargs)
         
-    def relate(this, other, relation='crossjoin', **petl_kwargs):
+    def relate(self, other, relation, **petl_kwargs):
         """relate this node and other node as a `RelatedNode` over relation. relation is a method name of `petl.util.base.Table`"""
-        return RelatedNode(this, other, relation, **petl_kwargs)
+        return RelatedNode(self, other, relation, **petl_kwargs)
     
     def tag(self):
         return get_tag(self.element)
@@ -74,18 +79,6 @@ class Node(object):
 
     def __repr__(self):
         return "<%s %s at 0x%x>" % (self.__class__.__name__, self.tag(), id(self))
-
-
-class EmptyNode(Node):
-    def __init__(self):
-        pass
-            
-    def expand2dicts(self, text_flag=True):
-        """implement"""
-        return []
-
-    def __repr__(self):
-        return "<%s %s at 0x%x>" % (self.__class__.__name__, 'None', id(self))
 
 
 class XMLNode(Node):
@@ -103,12 +96,11 @@ class XMLNode(Node):
         return XMLNode(element)
        
 
-        
 class NodeList(Node, list):
     def __init__(self, elements):
         if not elements:
             raise TypeError('received empty list')
-        nodes = element if isinstance(elements[0], Node) else [XMLNode(e) for e in elements]
+        nodes = elements if isinstance(elements[0], Node) else [XMLNode(e) for e in elements]
         Node.__init__(self, nodes[0].element)
         self.extend(nodes)
 
@@ -116,7 +108,7 @@ class NodeList(Node, list):
         """implement"""
         dicts = []
         for node in self:
-            dicts.extend(node.expand2dicts(text_flag=True))
+            dicts.extend(node.expand2dicts(text_flag))
         return dicts
 
     def _execute_expression(self, target_node, func_name, expression, **kwargs):
@@ -133,7 +125,7 @@ class NodeList(Node, list):
     
 class RelatedNode(Node):
     def __init__(self, this, other, relation, **kwargs):
-        super(RelatedNode, self).__init__(this.element)
+        super(RelatedNode, self).__init__(other.element)
         self.this = this
         self.other = other
         self.relation = relation
