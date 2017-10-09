@@ -59,9 +59,9 @@ class Node(object):
         elements = func(expression, **kwargs)
         return NodeList(elements)
 
-    def join(self, other, **petl_kwargs):
+    def join(self, other, key=None, **petl_kwargs):
         """join this node and other node as a `RelatedNode` """
-        return self.relate(other, 'join', **petl_kwargs)
+        return self.relate(other, 'join', key=key, **petl_kwargs)
 
     def crossjoin(self, other, **petl_kwargs):
         """concat this node and other node as a `RelatedNode` """
