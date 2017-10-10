@@ -5,12 +5,16 @@ Created on 2016年12月10日
 @author: albin
 @page: 
 """
+
 import re
 import abc
 import collections
 
 from lxml import etree 
 import petl
+
+
+__version__ = '1.0.0'
 
 
 namespace_pattern = re.compile(r"{.+}")
@@ -31,12 +35,11 @@ def get_namespace(element):
 
 class Node(object):
     __metaclass__ = abc.ABCMeta
+    """abstract class, it wraps a instance of `lxml.etree.Element` or `xml.etree.ElementTree.Element`"""
 
     def __init__(self, element):
-        """
-        :param element: a instance of `lxml.etree.Element`"""
         if element is Node:
-            raise TypeError('received None')
+            raise TypeError("Argument 'element' should be a instance of lxml.etree.Element or xml.etree.ElementTree.Element")
         self.element = element
     
     @abc.abstractmethod
@@ -166,7 +169,8 @@ def dicts2table(dicts):
 
 class DataBuilder(object):
     """expand element tree to a `sequence` of `dict`
-    :param element: lxml.etree.Element
+    :rename_tags: rename the duplicated tag in rename_tags
+    :type element: `lxml.etree.Element` or `xml.etree.ElementTree.Element`
     :param text_flag:  the table contains of element's text if True otherwise contains of element.
     """
 
@@ -215,3 +219,4 @@ class DataBuilder(object):
         for tag in self.tmp_tags[idx:]:
             self.data_item[tag] = None
         self.tmp_tags = self.tmp_tags[:idx]
+    
