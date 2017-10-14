@@ -1,17 +1,28 @@
 # -*- coding: utf-8 -*-
-"""
-Created on 2016年12月10日
+'''
+Source:
+    https://github.com/yangaound/xmlutil
+
+Created on 2016年12月24日
 
 @author: albin
-@page: 
-"""
+'''
 
 import re
 import abc
-import collections
+try:
+    from collections import OrderedDict
+except ImportError:
+    from ordereddict import OrderedDict
+    
 
-from lxml import etree 
-import petl
+import petl  
+try:
+    from lxml import etree 
+except ImportError:
+    from xml.etree import cElementTree as etree
+except ImportError:
+    from xml.etree import ElementTree as etree
 
 
 __version__ = '1.0.0'
@@ -26,34 +37,32 @@ def parse(filename, *args, **kwargs):
     
 
 def get_tag(element):
+    """return the element's local name"""
     return re.sub(namespace_pattern, '', element.tag)
     
     
 def get_namespace(element):
+    """return the element's namespace"""
     return re.sub(get_tag(element), '', element.tag)
 
 
 class Node(object):
+    """Abstract class, it wraps an instance of `lxml.etree.Element` or `xml.etree.ElementTree.Element`"""
     __metaclass__ = abc.ABCMeta
-    """abstract class, it wraps a instance of `lxml.etree.Element` or `xml.etree.ElementTree.Element`"""
 
     def __init__(self, element):
         if element is Node:
-            raise TypeError("Argument 'element' should be a instance of lxml.etree.Element or xml.etree.ElementTree.Element")
+            raise TypeError("Argument 'element' should be an instance of lxml.etree.Element or xml.etree.ElementTree.Element")
         self.element = element
     
     @abc.abstractmethod
-    def expand2dicts(self, rename_tags=(), text_flag=True, ):
-        """ expand the wrapped element. 
-        :rename_tags: rename the duplicated tag in rename_tags
+    def expand2dicts(self, **kwargs):
+        """expand the wrapped element tree into a `sequence`. 
         :return: list<dict>"""
 
-    def expand2table(self, rename_tags=(), text_flag=True, ):
-        """ expand the wrapped element to a table
-        :rename_tags: rename the duplicated tag in rename_tags
-        :param text_flag:  the table contains of element's text if True otherwise contains of element.
-        :return: `petl.util.base.TableWrapper`"""
-        dicts = self.expand2dicts(rename_tags=rename_tags, text_flag=text_flag, )
+    def expand2table(self, exclusive_tags=(), duplicate_tags=(), with_element=False, with_attrib=False, ):
+        dicts = self.expand2dicts(exclusive_tags=exclusive_tags, duplicate_tags=duplicate_tags, 
+                                  with_element=with_element, with_attrib=with_attrib, )
         return dicts2table(dicts)
 
     def findall(self, expression, **kwargs):
@@ -65,7 +74,7 @@ class Node(object):
         return self._execute_expression(self.element, 'xpath', expression, **kwargs)
         
     def _execute_expression(self, target_node, func_name, expression, **kwargs):
-        """executing expression over target_node methods named func_name"""
+        """executes expression over target_node methods named func_name"""
         func = getattr(target_node, func_name)
         elements = func(expression, **kwargs)
         return NodeList((XMLNode(e) for e in elements))
@@ -78,9 +87,9 @@ class Node(object):
         """crossjoin this node and other node as a `RelatedNode` """
         return self.relate(other, 'crossjoin', **petl_kwargs)
         
-    def relate(this, other, relation, **petl_kwargs):
+    def relate(self, other, relation, **petl_kwargs):
         """relate this node and other node as a `RelatedNode` over relation. relation is a function name of petl package"""
-        return RelatedNode(this, other, relation, **petl_kwargs)
+        return RelatedNode(self, other, relation, **petl_kwargs)
     
     def tag(self):
         return get_tag(self.element)
@@ -93,9 +102,9 @@ class Node(object):
 
 
 class XMLNode(Node):
-    def expand2dicts(self, rename_tags=(), text_flag=True, ):
+    def expand2dicts(self, **kwargs):
         """implement"""
-        dicts = DataBuilder(self.element, rename_tags=rename_tags, text_flag=text_flag, ).build()
+        dicts = TreeDataExpansion(self.element, **kwargs).expand()
         return dicts
         
     def remove(self):
@@ -109,23 +118,21 @@ class XMLNode(Node):
 
 class NodeList(Node, list):
     def __init__(self, nodes):
-        if not nodes:
-            raise TypeError("Invalid argument 'nodes', <? extands Iterator<xmlutil.Node>> nodes<?> is expecting.")
         self.extend(nodes)
         Node.__init__(self, self[0].element)
 
-    def expand2dicts(self, rename_tags=(), text_flag=True, ):
+    def expand2dicts(self, **kwargs ):
         """implement"""
         dicts = []
         for node in self:
-            dicts.extend(node.expand2dicts(rename_tags=rename_tags, text_flag=text_flag, ))
+            dicts.extend(node.expand2dicts(**kwargs))
         return dicts
 
-    def _execute_expression(self, target_node, func_name, expression, **kwargs):
+    def _execute_expression(self, _, func_name, expression, **kwargs):
         """overwrite"""
         nodes = []
         for node in self:
-            nodes.extend(Node._execute_expression(node, func_name, expression, **kwargs))
+            nodes.extend(Node._execute_expression(self, node, func_name, expression, **kwargs))
         return NodeList(nodes)
         
     def remove(self):
@@ -135,29 +142,27 @@ class NodeList(Node, list):
     
 class RelatedNode(Node):
     def __init__(self, this, other, relation, **kwargs):
-        super(RelatedNode, self).__init__(other.element)
+        super(RelatedNode, self).__init__(this.element)
         self.this = this
         self.other = other
         self.relation = relation
         self.kwargs = kwargs
 
-    def expand2dicts(self, rename_tags=(), text_flag=True, ):
+    def expand2dicts(self, **kwargs):
         """implement"""
-        return self.expand2table(rename_tags=rename_tags, text_flag=text_flag, ).dicts()
+        return self.expand2table(**kwargs).dicts()
 
-    def expand2table(self, rename_tags=(), text_flag=True, ):
+    def expand2table(self, **kwargs):
         """overwrite"""
-        this_dicts = self.this.expand2dicts(rename_tags=rename_tags, text_flag=text_flag, )
-        this_table = dicts2table(this_dicts)
-        other_dicts = self.other.expand2dicts(rename_tags=rename_tags, text_flag=text_flag, )
-        other_table = dicts2table(other_dicts)
+        this_table = dicts2table(self.this.expand2dicts(**kwargs))
+        other_table = dicts2table(self.other.expand2dicts(**kwargs))
         related_table = getattr(this_table, self.relation)(other_table, **self.kwargs)
         return related_table
 
-    def _execute_expression(self, target_node, func_name, expression, **kwargs):
+    def _execute_expression(self, _, func_name, expression, **kwargs):
         """overwrite"""
-        nodes1 = Node._execute_expression(self.this, func_name, expression, **kwargs)
-        nodes2 = Node._execute_expression(self.other, func_name, expression, **kwargs)
+        nodes1 = Node._execute_expression(self, self.this, func_name, expression, **kwargs)
+        nodes2 = Node._execute_expression(self, self.other, func_name, expression, **kwargs)
         return NodeList(nodes1 + nodes2)
         
 
@@ -167,56 +172,74 @@ def dicts2table(dicts):
     return table
 
 
-class DataBuilder(object):
-    """expand element tree to a `sequence` of `dict`
-    :rename_tags: rename the duplicated tag in rename_tags
-    :type element: `lxml.etree.Element` or `xml.etree.ElementTree.Element`
-    :param text_flag:  the table contains of element's text if True otherwise contains of element.
+class TreeDataExpansion(object):
+    """expand element tree into a `sequence` of `dict`
+    :type element: `lxml.etree.Element` or `xml.etree.cElementTree.Element`
+    :param exclusive_tags: these tags will be ignored
+    :param duplicate_tags: elements with same tag will be renamed and added to dictionaries
+    :param with_element: the values of dictionaries contains of element if True otherwise contains of element's text.
+    :param with_attrib: element that's attribute is not empty will be added to dictionaries if with_attrib is True
+    
+    E.g., 
+    >>> expansion = TreeDataExpansion(element)
+    >>> dicts = expansion.expand()
+    >>> for dic in dicts:
+    >>>     print dic
     """
 
-    def __init__(self, element, rename_tags=(), text_flag=True, ):
+    def __init__(self, element, exclusive_tags=(), duplicate_tags=(), with_element=False, with_attrib=False):
         self.element = element
-        self.rename_tags = rename_tags
-        self.rename_tags_counter = None
-        self.text_flag = text_flag
-        self.tmp_tags = list()
-        self.data_list = list()
-        self.data_item = collections.OrderedDict()
+        self.exclusive_tags = exclusive_tags
+        self.duplicate_tags = duplicate_tags
+        self.duplicate_tags_counter = None
+        self.with_element = with_element
+        self.with_attrib = with_attrib
+        self.dicts = list()
+        self.buffer_tags = list()
+        self.buffer_dict = OrderedDict()
 
-    def build(self):
-        self._reset_rename_tags_counter()
-        self._build(self.element)
-        return self.data_list
-    
-    def _reset_rename_tags_counter(self):
-        self.rename_tags_counter = dict((tag, 0) for tag in self.rename_tags)
+    def expand(self):
+        self._reset_duplicate_tags_counter()
+        self._expand(self.element)
+        return self.dicts
 
-    def _build(self, element, level=0):
+    def _expand(self, element, level=0):
         tag, text = get_tag(element), element.text.strip() if element.text else None
-        if text:
-            if self.data_item.get(tag) is not None:
-                if tag in self.rename_tags:
-                    count = self.rename_tags_counter[tag] + 1
-                    tag = tag + '_' + str(count)
-                    self.rename_tags_counter[tag] = count
-                else:
-                    self._insert(tag)
-            self.tmp_tags.append(tag)
-            self.data_item.update({tag: text if self.text_flag else element})
+        if tag in self.exclusive_tags:
+            pass    
+        elif text:  # element.text is not empty:
+            self._buffer(tag, text, element)
+        elif element.attrib and self.with_attrib:  # element.attribute is not empty 
+            self._buffer(tag, text, element, with_attrib=True)   
+        else:
+            pass
         for e in element:
-            self._build(e, level + 1)
+            self._expand(e, level + 1)
         if level == 0:
             self._insert(tag)
-
-    def _insert(self, duplicate_tag):
-        self._reset_rename_tags_counter()
-        self.data_list.append(self.data_item.copy())
+            
+    def _buffer(self, tag, text, element, with_attrib=False):
+        if self.buffer_dict.get(tag) is not None:
+            if tag in self.duplicate_tags:
+                count = self.duplicate_tags_counter[tag] + 1
+                tag = tag + '_' + str(count)
+                self.duplicate_tags_counter[tag] = count
+            else:
+                self._insert(tag)
+        self.buffer_tags.append(tag)
+        buffering = element if self.with_element else (element.attrib if with_attrib else text)
+        self.buffer_dict.update({tag: buffering})
         
+    def _reset_duplicate_tags_counter(self):
+        self.duplicate_tags_counter = dict((tag, 0) for tag in self.duplicate_tags)
+        
+    def _insert(self, duplicate_tag):
+        self._reset_duplicate_tags_counter()
+        self.dicts.append(self.buffer_dict.copy())
         try:
-            idx = self.tmp_tags.index(duplicate_tag)
+            idx = self.buffer_tags.index(duplicate_tag)
         except: 
-            idx = len(self.tmp_tags)
-        for tag in self.tmp_tags[idx:]:
-            self.data_item[tag] = None
-        self.tmp_tags = self.tmp_tags[:idx]
-    
+            idx = len(self.buffer_tags)
+        for tag in self.buffer_tags[idx:]:
+            self.buffer_dict[tag] = None
+        self.buffer_tags = self.buffer_tags[:idx]
