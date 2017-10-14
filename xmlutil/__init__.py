@@ -176,7 +176,7 @@ class TreeDataExpansion(object):
     """expand element tree into a `sequence` of `dict`
     :type element: `lxml.etree.Element` or `xml.etree.cElementTree.Element`
     :param exclusive_tags: these tags will be ignored
-    :param duplicate_tags: elements with same tag will be renamed and added to dictionaries
+    :param duplicate_tags: elements with same tag will be renamed and added to a dictionary
     :param with_element: the values of dictionaries contains of element if True otherwise contains of element's text.
     :param with_attrib: element that's attribute is not empty will be added to dictionaries if with_attrib is True
     
