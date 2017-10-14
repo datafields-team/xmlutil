@@ -238,7 +238,7 @@ class TreeDataExpansion(object):
         self.dicts.append(self.buffer_dict.copy())
         try:
             idx = self.buffer_tags.index(duplicate_tag)
-        except: 
+        except ValueError: 
             idx = len(self.buffer_tags)
         for tag in self.buffer_tags[idx:]:
             self.buffer_dict[tag] = None
