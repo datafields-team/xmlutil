@@ -46,12 +46,12 @@ def get_namespace(element):
     return re.sub(get_tag(element), '', element.tag)
 
 
-class Node(object):
-    """Abstract class, it wraps an instance of ``lxml.etree.Element`` or ``xml.etree.ElementTree.Element``"""
+class BridgeNode(object):
+    """Abstract class, it wraps an instance of ``lxml.etree.Element`` or ``xml.etree.ElementTree.Element`` as a implementor"""
     __metaclass__ = abc.ABCMeta
 
     def __init__(self, element):
-        if element is Node:
+        if element is None:
             raise TypeError("Argument 'element' should be an instance of lxml.etree.Element or xml.etree.ElementTree.Element")
         self.element = element
     
@@ -101,7 +101,7 @@ class Node(object):
         return "<%s %s at 0x%x>" % (self.__class__.__name__, self.tag(), id(self))
 
 
-class XMLNode(Node):
+class XMLNode(BridgeNode):
     """This class wraps an instance of ``lxml.etree.Element`` or ``xml.etree.ElementTree.Element``"""
     
     def to_dicts(self, **kwargs):
@@ -118,12 +118,12 @@ class XMLNode(Node):
         return XMLNode(element)
        
 
-class NodeList(Node, list):
+class NodeList(BridgeNode, list):
     """This class wraps a not empty collection which type should be ``<? extends Iteration<? extends xmlutil.Node>>``"""
     
     def __init__(self, nodes):
         self.extend(nodes)
-        Node.__init__(self, self[0].element)
+        BridgeNode.__init__(self, self[0].element)
 
     def to_dicts(self, **kwargs ):
         """implement"""
@@ -136,7 +136,7 @@ class NodeList(Node, list):
         """overwrite"""
         nodes = []
         for node in self:
-            nodes.extend(Node._execute_expression(self, node, func_name, expression, **kwargs))
+            nodes.extend(BridgeNode._execute_expression(self, node, func_name, expression, **kwargs))
         return NodeList(nodes)
         
     def remove(self):
@@ -144,8 +144,8 @@ class NodeList(Node, list):
             node.remove()
 
     
-class RelatedNode(Node):
-    """This class wraps 2 node, which type must be ``<? extends xmlutil.Node>>``"""
+class RelatedNode(BridgeNode):
+    """This class wraps 2 node, which type must be ``<? extends xmlutil.BridgeNode>>``"""
     
     def __init__(self, this, other, relation, **kwargs):
         super(RelatedNode, self).__init__(this.element)
@@ -167,8 +167,8 @@ class RelatedNode(Node):
 
     def _execute_expression(self, _, func_name, expression, **kwargs):
         """overwrite"""
-        nodes1 = Node._execute_expression(self, self.this, func_name, expression, **kwargs)
-        nodes2 = Node._execute_expression(self, self.other, func_name, expression, **kwargs)
+        nodes1 = BridgeNode._execute_expression(self, self.this, func_name, expression, **kwargs)
+        nodes2 = BridgeNode._execute_expression(self, self.other, func_name, expression, **kwargs)
         return NodeList(nodes1 + nodes2)
         
 
