@@ -1,7 +1,8 @@
 # xmlutil
-基於Python 套件 lxml/petl 的 xml 解析工具
+xml檔案解析輔助類。
+依賴``xml.etree`` 或 ``lxml.etree`` 以及``petl``。
 
-# dfs expands xml tree into a petl table
+# expands xml tree into a petl table
 ```
 >>> from xml.etree import cElementTree as ET
 >>> text = """<?xml version="1.0"?>
