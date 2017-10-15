@@ -2,6 +2,7 @@
 基於Python 套件 lxml/petl 的 xml 解析工具
 
 # dfs expands xml tree into a petl table
+```
 from xml.etree import cElementTree as ET
 
 text = """<?xml version="1.0"?>
@@ -82,3 +83,4 @@ table.lookall()                # views table
 +---------------------------+----------+---------------------------------------+-------------------------------------------+
 
 >>>
+```
