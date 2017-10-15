@@ -1,6 +1,7 @@
 # xmlutil
-xml檔案解析輔助類。
-依賴``xml.etree`` 或 ``lxml.etree`` 以及``petl``。
+this package extrats data from xml tree with bfs algorithm and transform it to a table with petl.<br />
+it depends on packages ``xml.etree`` or ``lxml.etree`` and ``petl``.<br />
+xml檔案解析輔助類。依賴``xml.etree`` 或 ``lxml.etree`` 以及``petl``。
 
 # expands xml tree into a petl table
 ```
