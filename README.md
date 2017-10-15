@@ -3,33 +3,33 @@
 
 # dfs expands xml tree into a petl table
 ```
-from xml.etree import cElementTree as ET
-text = """<?xml version="1.0"?>
-        <data>
-            <country name="Liechtenstein">
-                <rank>1</rank>
-                <year>2008</year>
-                <gdppc>141100</gdppc>
-                <neighbor name="Austria" direction="E"/>
-                <neighbor name="Switzerland" direction="W"/>
-            </country>
-            <country name="Singapore">
-                <rank>4</rank>
-                <year>2011</year>
-                <gdppc>59900</gdppc>
-                <neighbor name="Malaysia" direction="N"/>
-            </country>
-        </data>
-"""
-element = ET.fromstring(text)
-
-import xmlutil
-node = xmlutil.XMLNode(element)
-country = node.find('.//country')
-countries = node.findall('.//country')
-
-table = country.expand2table() # expands country into a petl table
-table.lookall()                # views table
+>>> from xml.etree import cElementTree as ET
+>>> text = """<?xml version="1.0"?>
+...         <data>
+...             <country name="Liechtenstein">
+...                 <rank>1</rank>
+...                 <year>2008</year>
+...                 <gdppc>141100</gdppc>
+...                 <neighbor name="Austria" direction="E"/>
+...                 <neighbor name="Switzerland" direction="W"/>
+...             </country>
+...             <country name="Singapore">
+...                 <rank>4</rank>
+...                 <year>2011</year>
+...                 <gdppc>59900</gdppc>
+...                 <neighbor name="Malaysia" direction="N"/>
+...             </country>
+...         </data>
+... """
+>>> element = ET.fromstring(text)
+>>>
+>>> import xmlutil
+>>> node = xmlutil.XMLNode(element)
+>>> country = node.find('.//country')
+>>> countries = node.findall('.//country')
+>>>
+>>> table = country.expand2table() # expands country into a petl table
+>>> table.lookall()                # views table
 +------+--------+----------+
 | rank | year   | gdppc    |
 +======+========+==========+
