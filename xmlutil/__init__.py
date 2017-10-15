@@ -47,7 +47,7 @@ def get_namespace(element):
 
 
 class Node(object):
-    """Abstract class, it wraps an instance of `lxml.etree.Element` or `xml.etree.ElementTree.Element`"""
+    """Abstract class, it wraps an instance of ``lxml.etree.Element`` or ``xml.etree.ElementTree.Element``"""
     __metaclass__ = abc.ABCMeta
 
     def __init__(self, element):
@@ -56,21 +56,21 @@ class Node(object):
         self.element = element
     
     @abc.abstractmethod
-    def expand2dicts(self, **kwargs):
-        """expand the wrapped element tree into a `sequence`. 
-        :return: list<dict>"""
+    def to_dicts(self, **kwargs):
+        """expand the wrapped element tree into a ``sequence``. 
+        :return: ``list<dict>``"""
 
-    def expand2table(self, exclusive_tags=(), duplicate_tags=(), with_element=False, with_attrib=False, ):
-        dicts = self.expand2dicts(exclusive_tags=exclusive_tags, duplicate_tags=duplicate_tags, 
+    def to_table(self, exclusive_tags=(), duplicate_tags=(), with_element=False, with_attrib=False, ):
+        dicts = self.to_dicts(exclusive_tags=exclusive_tags, duplicate_tags=duplicate_tags, 
                                   with_element=with_element, with_attrib=with_attrib, )
         return dicts2table(dicts)
 
     def findall(self, expression, **kwargs):
-        """Wraps the result of executing expression into a `NodeList` and return it"""
+        """Wraps the result of executing expression into a ``NodeList`` and return it"""
         return self._execute_expression(self.element, 'findall', expression, **kwargs)
     
     def xpath(self, expression, **kwargs):
-        """Wraps the result of executing expression into a `NodeList` and return it"""
+        """Wraps the result of executing expression into a ``NodeList`` and return it"""
         return self._execute_expression(self.element, 'xpath', expression, **kwargs)
         
     def _execute_expression(self, target_node, func_name, expression, **kwargs):
@@ -80,15 +80,15 @@ class Node(object):
         return NodeList((XMLNode(e) for e in elements))
 
     def join(self, other, key=None, **petl_kwargs):
-        """join this node and other node as a `RelatedNode` """
+        """join this node and other node as a ``RelatedNode`` """
         return self.relate(other, 'join', key=key, **petl_kwargs)
 
     def crossjoin(self, other, **petl_kwargs):
-        """crossjoin this node and other node as a `RelatedNode` """
+        """crossjoin this node and other node as a ``RelatedNode`` """
         return self.relate(other, 'crossjoin', **petl_kwargs)
         
     def relate(self, other, relation, **petl_kwargs):
-        """relate this node and other node as a `RelatedNode` over relation. relation is a function name of petl package"""
+        """relate this node and other node as a ``RelatedNode`` over relation. relation is a function name of petl package"""
         return RelatedNode(self, other, relation, **petl_kwargs)
     
     def tag(self):
@@ -102,9 +102,11 @@ class Node(object):
 
 
 class XMLNode(Node):
-    def expand2dicts(self, **kwargs):
+    """This class wraps an instance of ``lxml.etree.Element`` or ``xml.etree.ElementTree.Element``"""
+    
+    def to_dicts(self, **kwargs):
         """implement"""
-        dicts = TreeDataExpansion(self.element, **kwargs).expand()
+        dicts = DFSExpansion(self.element, **kwargs).expand()
         return dicts
         
     def remove(self):
@@ -117,15 +119,17 @@ class XMLNode(Node):
        
 
 class NodeList(Node, list):
+    """This class wraps a not empty collection which type should be ``<? extends Iteration<? extends xmlutil.Node>>``"""
+    
     def __init__(self, nodes):
         self.extend(nodes)
         Node.__init__(self, self[0].element)
 
-    def expand2dicts(self, **kwargs ):
+    def to_dicts(self, **kwargs ):
         """implement"""
         dicts = []
         for node in self:
-            dicts.extend(node.expand2dicts(**kwargs))
+            dicts.extend(node.to_dicts(**kwargs))
         return dicts
 
     def _execute_expression(self, _, func_name, expression, **kwargs):
@@ -141,6 +145,8 @@ class NodeList(Node, list):
 
     
 class RelatedNode(Node):
+    """This class wraps 2 node, which type must be ``<? extends xmlutil.Node>>``"""
+    
     def __init__(self, this, other, relation, **kwargs):
         super(RelatedNode, self).__init__(this.element)
         self.this = this
@@ -148,14 +154,14 @@ class RelatedNode(Node):
         self.relation = relation
         self.kwargs = kwargs
 
-    def expand2dicts(self, **kwargs):
+    def to_dicts(self, **kwargs):
         """implement"""
-        return self.expand2table(**kwargs).dicts()
+        return self.to_table(**kwargs).dicts()
 
-    def expand2table(self, **kwargs):
+    def to_table(self, **kwargs):
         """overwrite"""
-        this_table = dicts2table(self.this.expand2dicts(**kwargs))
-        other_table = dicts2table(self.other.expand2dicts(**kwargs))
+        this_table = dicts2table(self.this.to_dicts(**kwargs))
+        other_table = dicts2table(self.other.to_dicts(**kwargs))
         related_table = getattr(this_table, self.relation)(other_table, **self.kwargs)
         return related_table
 
@@ -167,21 +173,21 @@ class RelatedNode(Node):
         
 
 def dicts2table(dicts):
-    """transform dicts into a `petl.util.base.Table`"""
+    """transform dicts into a ``petl.util.base.Table``"""
     table = petl.wrap(petl.fromdicts(dicts))
     return table
 
 
-class TreeDataExpansion(object):
-    """expand element tree into a `sequence` of `dict`
-    :type element: `lxml.etree.Element` or `xml.etree.cElementTree.Element`
-    :param exclusive_tags: these tags will be ignored
-    :param duplicate_tags: elements with same tag will be renamed and added to a dictionary
+class DFSExpansion(object):
+    """depth first search element tree and expands it into a ``sequence`` of ``dict``
+    :type element: ``lxml.etree.Element`` or ``xml.etree.cElementTree.Element``
+    :param exclusive_tags: element with these tags will be ignored
+    :param duplicate_tags: elements with these tag will be renamed and added to a dictionary
     :param with_element: the values of dictionaries contains of element if True otherwise contains of element's text.
     :param with_attrib: element that's attribute is not empty will be added to dictionaries if with_attrib is True
     
     E.g., 
-    >>> expansion = TreeDataExpansion(element)
+    >>> expansion = DFSExpansion(element)
     >>> dicts = expansion.expand()
     >>> for dic in dicts:
     >>>     print dic
@@ -243,3 +249,4 @@ class TreeDataExpansion(object):
         for tag in self.buffer_tags[idx:]:
             self.buffer_dict[tag] = None
         self.buffer_tags = self.buffer_tags[:idx]
+
