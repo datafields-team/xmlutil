@@ -66,18 +66,18 @@ class BridgeNode(object):
         return dicts2table(dicts)
 
     def findall(self, expression, **kwargs):
-        """Wraps the result of executing expression into a ``NodeList`` and return it"""
+        """Wraps the result of executing expression into a ``GroupNode`` and return it"""
         return self._execute_expression(self.element, 'findall', expression, **kwargs)
     
     def xpath(self, expression, **kwargs):
-        """Wraps the result of executing expression into a ``NodeList`` and return it"""
+        """Wraps the result of executing expression into a ``GroupNode`` and return it"""
         return self._execute_expression(self.element, 'xpath', expression, **kwargs)
         
     def _execute_expression(self, target_node, func_name, expression, **kwargs):
         """executes expression over target_node methods named func_name"""
         func = getattr(target_node, func_name)
         elements = func(expression, **kwargs)
-        return NodeList((XMLNode(e) for e in elements))
+        return GroupNode((XMLNode(e) for e in elements))
 
     def join(self, other, key=None, **petl_kwargs):
         """join this node and other node as a ``RelatedNode`` """
@@ -102,7 +102,7 @@ class BridgeNode(object):
 
 
 class XMLNode(BridgeNode):
-    """This class wraps an instance of ``lxml.etree.Element`` or ``xml.etree.ElementTree.Element``"""
+    """This class wraps an instance of ``lxml.etree.Element`` or ``xml.etree.ElementTree.Element`` as a implementor"""
     
     def to_dicts(self, **kwargs):
         """implement"""
@@ -118,8 +118,8 @@ class XMLNode(BridgeNode):
         return XMLNode(element)
        
 
-class NodeList(BridgeNode, list):
-    """This class wraps a not empty collection which type should be ``<? extends Iteration<? extends xmlutil.Node>>``"""
+class GroupNode(BridgeNode, list):
+    """This class wraps a not empty collection which type should be ``<? extends Iteration<? extends xmlutil.BridgeNode>>``"""
     
     def __init__(self, nodes):
         self.extend(nodes)
@@ -137,7 +137,7 @@ class NodeList(BridgeNode, list):
         nodes = []
         for node in self:
             nodes.extend(BridgeNode._execute_expression(self, node, func_name, expression, **kwargs))
-        return NodeList(nodes)
+        return GroupNode(nodes)
         
     def remove(self):
         for node in self:
@@ -145,7 +145,7 @@ class NodeList(BridgeNode, list):
 
     
 class RelatedNode(BridgeNode):
-    """This class wraps 2 node, which type must be ``<? extends xmlutil.BridgeNode>>``"""
+    """This class wraps 2 node over their relation, which type must be ``<? extends xmlutil.BridgeNode>>``"""
     
     def __init__(self, this, other, relation, **kwargs):
         super(RelatedNode, self).__init__(this.element)
@@ -169,7 +169,7 @@ class RelatedNode(BridgeNode):
         """overwrite"""
         nodes1 = BridgeNode._execute_expression(self, self.this, func_name, expression, **kwargs)
         nodes2 = BridgeNode._execute_expression(self, self.other, func_name, expression, **kwargs)
-        return NodeList(nodes1 + nodes2)
+        return GroupNode(nodes1 + nodes2)
         
 
 def dicts2table(dicts):
