@@ -64,12 +64,11 @@ class BridgeNode(object):
         table = dicts2table(dicts)  
         if inclusive_tags:
             header = set([field for tag in inclusive_tags for field in table.header() if (tag == field) or field.startswith(tag + '_')])
-            return table.cut(*header)
+            table = table.cut(*header)
         elif exclusive_tags:
             header = set([field for tag in exclusive_tags for field in table.header() if (tag == field) or field.startswith(tag + '_')])
-            return table.cutout(*header)    
-        else:
-            return table
+            table = table.cutout(*header)    
+        return table
             
     def findall(self, expression, **kwargs):
         """Wraps the result of executing expression into a ``GroupNode`` and return it"""
@@ -268,3 +267,4 @@ class DFSExpansion(object):
         for tag in self.buffer_tags[idx:]:
             self.buffer_dict.has_key(tag) and self.buffer_dict.update({tag: None})
         self.buffer_tags = self.buffer_tags[:idx]
+
