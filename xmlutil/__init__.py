@@ -59,11 +59,18 @@ class BridgeNode(object):
         """expand the wrapped element tree into a ``sequence``.
         :return: ``list<dict>``"""
 
-    def to_table(self, exclusive_tags=(), duplicate_tags=(), with_element=False, with_attrib=False, ):
-        dicts = self.to_dicts(exclusive_tags=exclusive_tags, duplicate_tags=duplicate_tags,
-                              with_element=with_element, with_attrib=with_attrib, )
-        return dicts2table(dicts)
-
+    def to_table(self, inclusive_tags=(), exclusive_tags=(), duplicate_tags=(), with_element=False, with_attrib=False, ):
+        dicts = self.to_dicts(duplicate_tags=duplicate_tags, with_element=with_element, with_attrib=with_attrib, )
+        table = dicts2table(dicts)  
+        if inclusive_tags:
+            header = set([field for tag in inclusive_tags for field in table.header() if (tag == field) or field.startswith(tag + '_')])
+            return table.cut(*header)
+        elif exclusive_tags:
+            header = set([field for tag in exclusive_tags for field in table.header() if (tag == field) or field.startswith(tag + '_')])
+            return table.cutout(*header)    
+        else:
+            return table
+            
     def findall(self, expression, **kwargs):
         """Wraps the result of executing expression into a ``GroupNode`` and return it"""
         return self._execute_expression(self.element, 'findall', expression, **kwargs)
@@ -95,6 +102,10 @@ class BridgeNode(object):
 
     def namespace(self):
         return get_namespace(self.element)
+        
+    def nsmap(self, sub=None):
+        nsmap = self.element.nsmap
+        return dict((k if k else sub, v) for k, v in nsmap.items())
 
     def __repr__(self):
         return "<%s %s at 0x%x>" % (self.__class__.__name__, self.tag(), id(self))
@@ -171,7 +182,7 @@ class RelatedNode(BridgeNode):
         return self.to_table(**kwargs).dicts()
 
     def to_table(self, **kwargs):
-        """overwrite"""
+        """overwrite"""            
         this_table = dicts2table(self.this.to_dicts(**kwargs))
         other_table = dicts2table(self.other.to_dicts(**kwargs))
         if this_table.nrows() == 0:       # self.this is a EmptyNode
@@ -195,7 +206,6 @@ def dicts2table(dicts):
 class DFSExpansion(object):
     """depth first search element tree and expands it into a ``sequence`` of ``dict``
     :type element: ``lxml.etree.Element`` or ``xml.etree.cElementTree.Element``
-    :param exclusive_tags: element with these tags will be ignored
     :param duplicate_tags: elements with these tag will be renamed and added to a dictionary
     :param with_element: the values of dictionaries contains of element if True otherwise contains of element's text.
     :param with_attrib: element that's attribute is not empty will be added to dictionaries if with_attrib is True
@@ -207,9 +217,8 @@ class DFSExpansion(object):
     >>>     print dic
     """
 
-    def __init__(self, element, exclusive_tags=(), duplicate_tags=(), with_element=False, with_attrib=False):
+    def __init__(self, element, duplicate_tags=(), with_element=False, with_attrib=False):
         self.element = element
-        self.exclusive_tags = exclusive_tags
         self.duplicate_tags = duplicate_tags
         self.duplicate_tags_counter = None
         self.with_element = with_element
@@ -225,14 +234,10 @@ class DFSExpansion(object):
 
     def _expand(self, element, level=0):
         tag, text = get_tag(element), element.text.strip() if element.text else None
-        if tag in self.exclusive_tags:
-            pass
-        elif text:  # element.text is not empty:
+        if text:                                     # element.text is not empty:
             self._buffer(tag, text, element)
-        elif element.attrib and self.with_attrib:  # element.attribute is not empty
+        elif element.attrib and self.with_attrib:    # element.attribute is not empty and need to fetch it
             self._buffer(tag, text, element, with_attrib=True)
-        else:
-            pass
         for e in element:
             self._expand(e, level + 1)
         if level == 0:
@@ -240,7 +245,7 @@ class DFSExpansion(object):
 
     def _buffer(self, tag, text, element, with_attrib=False):
         if self.buffer_dict.get(tag) is not None:
-            if tag in self.duplicate_tags:
+            if self.duplicate_tags and tag in self.duplicate_tags:
                 count = self.duplicate_tags_counter[tag] + 1
                 tag = tag + '_' + str(count)
                 self.duplicate_tags_counter[tag] = count
@@ -261,6 +266,5 @@ class DFSExpansion(object):
         except ValueError:
             idx = len(self.buffer_tags)
         for tag in self.buffer_tags[idx:]:
-            self.buffer_dict[tag] = None
+            self.buffer_dict.has_key(tag) and self.buffer_dict.update({tag: None})
         self.buffer_tags = self.buffer_tags[:idx]
-
