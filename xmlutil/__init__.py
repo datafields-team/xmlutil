@@ -10,14 +10,13 @@ Created on 2016年12月24日
 
 import re
 import abc
-
+from collections import defaultdict
 try:
     from collections import OrderedDict
 except ImportError:
     from ordereddict import OrderedDict
 
 import petl
-
 try:
     from lxml import etree
 except ImportError:
@@ -245,9 +244,8 @@ class DFSExpansion(object):
     def _buffer(self, tag, text, element, with_attrib=False):
         if self.buffer_dict.get(tag) is not None:
             if self.duplicate_tags and tag in self.duplicate_tags:
-                count = self.duplicate_tags_counter[tag] + 1
-                tag = tag + '_' + str(count)
-                self.duplicate_tags_counter[tag] = count
+                self.duplicate_tags_counter[tag] += 1
+                tag = tag + '_' + str(self.duplicate_tags_counter[tag])
             else:
                 self._insert(tag)
         self.buffer_tags.append(tag)
@@ -255,7 +253,7 @@ class DFSExpansion(object):
         self.buffer_dict.update({tag: buffering})
 
     def _reset_duplicate_tags_counter(self):
-        self.duplicate_tags_counter = dict((tag, 0) for tag in self.duplicate_tags)
+        self.duplicate_tags_counter = defaultdict(int)
 
     def _insert(self, duplicate_tag):
         self._reset_duplicate_tags_counter()
@@ -267,4 +265,3 @@ class DFSExpansion(object):
         for tag in self.buffer_tags[idx:]:
             self.buffer_dict.has_key(tag) and self.buffer_dict.update({tag: None})
         self.buffer_tags = self.buffer_tags[:idx]
-
