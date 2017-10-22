@@ -62,10 +62,10 @@ class BridgeNode(object):
         dicts = self.to_dicts(duplicate_tags=duplicate_tags, with_element=with_element, with_attrib=with_attrib, )
         table = dicts2table(dicts)  
         if inclusive_tags:
-            header = set([field for tag in inclusive_tags for field in table.header() if (tag == field) or field.startswith(tag + '_')])
+            header = [field for tag in inclusive_tags for field in table.header() if (tag == field) or field.startswith(tag + '_')]
             table = table.cut(*header)
         elif exclusive_tags:
-            header = set([field for tag in exclusive_tags for field in table.header() if (tag == field) or field.startswith(tag + '_')])
+            header = [field for tag in exclusive_tags for field in table.header() if (tag == field) or field.startswith(tag + '_')]
             table = table.cutout(*header)    
         return table
             
@@ -265,3 +265,4 @@ class DFSExpansion(object):
         for tag in self.buffer_tags[idx:]:
             self.buffer_dict.has_key(tag) and self.buffer_dict.update({tag: None})
         self.buffer_tags = self.buffer_tags[:idx]
+
