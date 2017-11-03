@@ -55,7 +55,7 @@ class BridgeNode(object):
 
     @abc.abstractmethod
     def to_dicts(self, **kwargs):
-        """expand the wrapped element tree into a ``sequence``.
+        """expands the wrapped element tree into a ``sequence``.
         :return: ``list<dict>``"""
 
     def to_table(self, inclusive_tags=(), exclusive_tags=(), duplicate_tags=(), with_element=False, with_attrib=False, ):
@@ -140,7 +140,7 @@ class XMLNode(BridgeNode):
 
 
 class GroupNode(BridgeNode, list):
-    """This class wraps a not empty collection which type should be ``<? extends Iteration<? extends xmlutil.BridgeNode>>``"""
+    """This class wraps a not empty collection which type must be ``Iteration<? extends xmlutil.BridgeNode>``"""
 
     def __init__(self, nodes):
         self.extend(nodes)
@@ -166,7 +166,7 @@ class GroupNode(BridgeNode, list):
 
 
 class RelatedNode(BridgeNode):
-    """This class wraps 2 node over their relation, which type must be ``<? extends xmlutil.BridgeNode>>``"""
+    """This class wraps 2 node over their relation, which type must be ``extends xmlutil.BridgeNode``"""
 
     def __init__(self, this, other, relation, **kwargs):
         super(RelatedNode, self).__init__(other.element)
