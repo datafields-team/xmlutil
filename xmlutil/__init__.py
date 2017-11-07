@@ -30,6 +30,7 @@ namespace_pattern = re.compile(r"{.+}")
 
 
 def parse(filename, *args, **kwargs):
+    """factory method, new a instance of XMLNode"""
     element = etree.parse(filename, *args, **kwargs).getroot()
     return XMLNode(element)
 
@@ -45,10 +46,10 @@ def get_namespace(element):
 
 
 class BridgeNode(object):
-    """Abstract class, it wraps an instance of ``lxml.etree.Element`` or ``xml.etree.ElementTree.Element`` as a implementor"""
     __metaclass__ = abc.ABCMeta
 
     def __init__(self, element):
+        """Abstract class, it wraps an instance of ``lxml.etree.Element`` or ``xml.etree.ElementTree.Element`` as a implementor"""
         if element is None:
             raise TypeError("Argument 'element' should be an instance of lxml.etree.Element or xml.etree.ElementTree.Element")
         self.element = element
@@ -140,9 +141,8 @@ class XMLNode(BridgeNode):
 
 
 class GroupNode(BridgeNode, list):
-    """This class wraps a not empty collection which type must be ``Iteration<? extends xmlutil.BridgeNode>``"""
-
     def __init__(self, nodes):
+        """This class wraps a not empty collection which type must be ``Iterator<? extends xmlutil.BridgeNode>``"""
         self.extend(nodes)
         BridgeNode.__init__(self, self[0].element)
 
@@ -166,9 +166,8 @@ class GroupNode(BridgeNode, list):
 
 
 class RelatedNode(BridgeNode):
-    """This class wraps 2 node over their relation, which type must be ``extends xmlutil.BridgeNode``"""
-
     def __init__(self, this, other, relation, **kwargs):
+        """This class wraps 2 node over their relation, which type must be subclass of ``xmlutil.BridgeNode``"""
         super(RelatedNode, self).__init__(other.element)
         self.this = this
         self.other = other
