@@ -10,6 +10,7 @@ Created on 2016年12月24日
 
 import re
 import abc
+import itertools
 from collections import defaultdict
 try:
     from collections import OrderedDict
@@ -30,7 +31,7 @@ namespace_pattern = re.compile(r"{.+}")
 
 
 def parse(filename, *args, **kwargs):
-    """factory method, new a instance of XMLNode"""
+    """factory method, return a new instance of XMLNode"""
     element = etree.parse(filename, *args, **kwargs).getroot()
     return XMLNode(element)
 
@@ -49,7 +50,9 @@ class BridgeNode(object):
     __metaclass__ = abc.ABCMeta
 
     def __init__(self, element):
-        """Abstract class, it wraps an instance of ``lxml.etree.Element`` or ``xml.etree.ElementTree.Element`` as a implementor"""
+        """Abstract class, it wraps an element as a implementor
+        :type element: ``lxml.etree.Element`` or ``xml.etree.ElementTree.Element``
+        """
         if element is None:
             raise TypeError("Argument 'element' should be an instance of lxml.etree.Element or xml.etree.ElementTree.Element")
         self.element = element
@@ -142,7 +145,9 @@ class XMLNode(BridgeNode):
 
 class GroupNode(BridgeNode, list):
     def __init__(self, nodes):
-        """This class wraps a not empty collection which type must be ``Iterator<? extends xmlutil.BridgeNode>``"""
+        """This class wraps a not empty collection
+        :type nodes: ``Iterator<? extends xmlutil.BridgeNode>``
+        """
         self.extend(nodes)
         BridgeNode.__init__(self, self[0].element)
 
@@ -167,7 +172,11 @@ class GroupNode(BridgeNode, list):
 
 class RelatedNode(BridgeNode):
     def __init__(self, this, other, relation, **kwargs):
-        """This class wraps 2 node over their relation, which type must be subclass of ``xmlutil.BridgeNode``"""
+        """This class wraps 2 node over their relation
+        :type this: ``? extends xmlutil.BridgeNode``
+        :type other: ``? extends xmlutil.BridgeNode``
+        :type relation: a function name of package ``petl``
+        """
         super(RelatedNode, self).__init__(other.element)
         self.this = this
         self.other = other
@@ -192,7 +201,7 @@ class RelatedNode(BridgeNode):
         """overwrite"""
         nodes1 = BridgeNode._execute_expression(self, self.this, func_name, expression, **kwargs)
         nodes2 = BridgeNode._execute_expression(self, self.other, func_name, expression, **kwargs)
-        return GroupNode(nodes1 + nodes2)
+        return GroupNode(itertools.chain(nodes1, nodes2))
 
 
 def dicts2table(dicts):
@@ -202,11 +211,6 @@ def dicts2table(dicts):
 
 class DFSExpansion(object):
     """depth first search element tree and expands it into a ``sequence`` of ``dict``
-    :type element: ``lxml.etree.Element`` or ``xml.etree.cElementTree.Element``
-    :param duplicate_tags: elements with these tag will be renamed and added to a dictionary
-    :param with_element: the values of dictionaries contains of element if True otherwise contains of element's text.
-    :param with_attrib: element that's attribute is not empty will be added to dictionaries if with_attrib is True
-
     E.g.,
     >>> expansion = DFSExpansion(element)
     >>> dicts = expansion.expand()
@@ -215,6 +219,12 @@ class DFSExpansion(object):
     """
 
     def __init__(self, element, duplicate_tags=(), with_element=False, with_attrib=False):
+        """
+    :type element: ``lxml.etree.Element`` or ``xml.etree.cElementTree.Element``
+    :param duplicate_tags: elements with these tag will be renamed and added to a dictionary
+    :param with_element: the values of dictionaries contains of element if True otherwise contains of element's text.
+    :param with_attrib: element that's attribute is not empty will be added to dictionaries if with_attrib is Tr
+    """
         self.element = element
         self.duplicate_tags = duplicate_tags
         self.duplicate_tags_counter = None
